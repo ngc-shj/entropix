@@ -15,6 +15,20 @@ params = {
   "max_seq_len": 4096
 }
 
+params_8b = {
+  "dim": 4096,
+  "n_layers": 32,
+  "n_heads": 32,
+  "n_kv_heads": 8,
+  "vocab_size": 128256,
+  "ffn_dim_multiplier": 1.5,
+  "multiple_of": 256,
+  "norm_eps": 1e-05,
+  "rope_theta": 500000.0,
+  "use_scaled_rope": True,
+  "max_seq_len": 4096
+}
+
 
 class ModelParams(NamedTuple):
   n_layers: int
@@ -34,4 +48,14 @@ LLAMA_1B_PARAMS = ModelParams(
   max_seq_len=params["max_seq_len"],
   rope_theta=params["rope_theta"],
   use_scaled_rope=params["use_scaled_rope"]
+)
+
+LLAMA_8B_PARAMS = ModelParams(
+  n_layers=params_8b["n_layers"],
+  n_local_heads=params_8b["n_heads"],
+  n_local_kv_heads=params_8b["n_kv_heads"],
+  head_dim=params_8b["dim"] // params_8b["n_heads"],
+  max_seq_len=params_8b["max_seq_len"],
+  rope_theta=params_8b["rope_theta"],
+  use_scaled_rope=params_8b["use_scaled_rope"]
 )

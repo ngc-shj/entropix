@@ -9,7 +9,7 @@ import tyro
 from pathlib import Path
 from functools import partial
 
-from entropix.config import LLAMA_1B_PARAMS
+from entropix.config import LLAMA_1B_PARAMS, LLAMA_8B_PARAMS
 from entropix.tokenizer import Tokenizer
 from entropix.torch_kvcache import KVCache
 from entropix.torch_model import xfmr
@@ -17,8 +17,7 @@ from entropix.torch_weights import XfmrWeights, LayerWeights, load_weights
 from entropix.torch_sampler import sample
 from entropix.prompts import prompt, bp1
 
-DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+DEFAULT_WEIGHTS_PATH = Path(__file__).parent / '../weights'
 
 # Device selection, tree is like first apple silicion, then cuda, fallback is cpu.
 if torch.backends.mps.is_available():
@@ -89,10 +88,19 @@ def build_attn_mask(seqlen: int, start_pos: int) -> torch.Tensor:
 
 
 
-def main():
+def main(model_size: str = '1B'):
   with torch.inference_mode():
-    model_params = LLAMA_1B_PARAMS
-    xfmr_weights = load_weights()
+    if model_size == '8B':
+        model_params = LLAMA_8B_PARAMS
+        weights_folder = '8B-Instruct'
+    elif model_size == '1B':
+        model_params = LLAMA_1B_PARAMS
+        weights_folder = '1B-Instruct'
+    else:
+        raise ValueError("Invalid model size. Choose either '8B' or '1B'.")
+
+    weights_path = DEFAULT_WEIGHTS_PATH.joinpath(weights_folder)
+    xfmr_weights = load_weights(weights_path.absolute(), model_params.n_layers)
 
     tokenizer = Tokenizer('entropix/tokenizer.model')
     raw_tokens1 = tokenizer.encode(prompt,  bos=False, eos=False, allowed_special='all')
@@ -107,7 +115,7 @@ def main():
       bsz, seqlen = tokens.shape
       attn_mask = build_attn_mask(seqlen, cur_pos)
       freqs_cis = precompute_freqs_cis(model_params.head_dim, model_params.max_seq_len, model_params.rope_theta, model_params.use_scaled_rope)
-      kvcache = KVCache.new(model_params.n_layers, bsz, model_params.max_seq_len, model_params.n_local_kv_heads, model_params.head_dim).to(DEVICE)
+      kvcache = KVCache.new(model_params.n_layers, bsz, model_params.max_seq_len, model_params.n_local_kv_heads, model_params.head_dim).to(device)
       logits, kvcache, _, _ = xfmr(xfmr_weights, model_params, tokens, cur_pos, freqs_cis[:seqlen], kvcache, attn_mask=attn_mask)
       next_token = torch.argmax(logits[:, -1], dim=-1, keepdim=True).to(torch.int32)
       gen_tokens = next_token
